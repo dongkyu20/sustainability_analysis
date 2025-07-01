@@ -1,0 +1,1 @@
+function visitLogReigst(){var i=location.href,t=$("#siteIdVal").val();null!=t&&-1!=i.indexOf("/index")&&$.ajax({url:kurl("/visitLog/"+t+"/regist"),type:"post",data:{url:i},cache:!1,async:!0,success:function(i){},error:function(){}})}$(document).ready((function(){visitLogReigst()}));
