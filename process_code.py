@@ -405,17 +405,17 @@ class CodeEmbeddingDB:
         self.init_database()
     
     def init_database(self):
-        """데이터베이스 초기화"""
+        """데이터베이스 초기화 및 마이그레이션"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        # 기본 테이블 생성
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS code_chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chunk_id TEXT UNIQUE,
                 file_path TEXT,
                 content TEXT,
-                file_type TEXT,
                 start_line INTEGER,
                 end_line INTEGER,
                 embedding BLOB,
@@ -588,6 +588,20 @@ class WebsiteCodeProcessor:
         
         return embedded_chunks
     
+    def _should_exclude_file(self, file_path: str, exclude_keywords: List[str]) -> bool:
+        """파일이 제외 키워드에 해당하는지 확인"""
+        if not exclude_keywords:
+            return False
+        
+        file_path_lower = file_path.lower()
+        
+        for keyword in exclude_keywords:
+            keyword_lower = keyword.lower()
+            if keyword_lower in file_path_lower:
+                return True
+        
+        return False
+    
     def _is_code_file(self, filename: str, allowed_extensions: List[str] = None) -> bool:
         """코드 파일인지 확인"""
         if allowed_extensions:
@@ -610,6 +624,8 @@ def main():
     parser.add_argument('--model', default='codellama:13b', help='사용할 모델명')
     parser.add_argument('--db-path', default='code_embeddings.db', help='데이터베이스 파일 경로')
     parser.add_argument('--extensions', nargs='+', help='처리할 파일 확장자 (예: .py .js .html)')
+    parser.add_argument('--exclude-keywords', nargs='+', help='제외할 파일명 키워드 (예: test spec mock)')
+    parser.add_argument('--exclude-dirs', nargs='+', help='제외할 디렉토리명 (기본: node_modules __pycache__ dist build .git .vscode .idea)')
     
     args = parser.parse_args()
     
@@ -628,7 +644,12 @@ def main():
             model=args.model
         )
         
-        processor.process_website_code(args.website_path, args.extensions)
+        processor.process_website_code(
+            website_path=args.website_path, 
+            file_extensions=args.extensions,
+            exclude_keywords=args.exclude_keywords,
+            exclude_dirs=args.exclude_dirs
+        )
         
     except KeyboardInterrupt:
         print("\n처리가 중단되었습니다.")
