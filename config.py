@@ -11,7 +11,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # OpenAI 사용시 필요
 
 # Ollama 설정
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_EMBEDDING_MODEL = "mxbai-embed-large"  # 또는 "nomic-embed-text"
+OLLAMA_EMBEDDING_MODEL = "codellama:13b"  # 코드 특화 모델
 
 # 청킹 설정
 MAX_CHUNK_SIZE = 1000

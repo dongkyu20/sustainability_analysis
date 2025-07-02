@@ -96,6 +96,17 @@ def pull_embedding_model():
     """임베딩 모델 다운로드"""
     model = config.OLLAMA_EMBEDDING_MODEL
     print(f"📥 Pulling embedding model: {model}")
+    print("⚠️  CodeLlama:13b is a large model (~7GB). This will take time and disk space!")
+    
+    # 사용자 확인
+    try:
+        confirm = input("Continue with download? (y/N): ").strip().lower()
+        if confirm not in ['y', 'yes']:
+            print("❌ Download cancelled")
+            return False
+    except KeyboardInterrupt:
+        print("\n❌ Download cancelled")
+        return False
     
     try:
         # ollama pull 명령 실행
@@ -104,7 +115,8 @@ def pull_embedding_model():
                                  stderr=subprocess.PIPE, 
                                  text=True)
         
-        print("⏳ Downloading model... This may take several minutes.")
+        print("⏳ Downloading CodeLlama:13b... This may take 10-30 minutes depending on your connection.")
+        print("💾 Model size: ~7GB")
         
         # 실시간 출력
         while True:
@@ -116,6 +128,7 @@ def pull_embedding_model():
         
         if process.returncode == 0:
             print(f"✅ Model {model} downloaded successfully")
+            print("🚀 CodeLlama:13b is now ready for code embedding!")
             return True
         else:
             stderr = process.stderr.read()

@@ -15,7 +15,8 @@ class CodeSearcher:
         """유사한 코드 청크 검색"""
         
         # 쿼리 임베딩 생성
-        print(f"🔍 Generating embedding for query: '{query[:50]}...'")
+        print(f"🔍 Generating CodeLlama embedding for query: '{query[:50]}...'")
+        print("⏳ CodeLlama may take longer to generate embeddings...")
         try:
             query_embedding = self.embedder.create_embedding(query)
             if not query_embedding or all(x == 0 for x in query_embedding):
