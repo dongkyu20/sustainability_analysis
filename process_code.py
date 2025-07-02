@@ -423,6 +423,15 @@ class CodeEmbeddingDB:
             )
         ''')
         
+        # 스키마 마이그레이션: file_type 컬럼 추가
+        try:
+            cursor.execute('SELECT file_type FROM code_chunks LIMIT 1')
+        except sqlite3.OperationalError:
+            print("file_type 컬럼이 없습니다. 스키마를 업데이트합니다...")
+            cursor.execute('ALTER TABLE code_chunks ADD COLUMN file_type TEXT DEFAULT "text"')
+            print("file_type 컬럼이 추가되었습니다.")
+        
+        # 인덱스 생성
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_file_path ON code_chunks(file_path);
         ''')
@@ -483,6 +492,26 @@ class CodeEmbeddingDB:
                         json.dumps(chunk.embedding).encode('utf-8')
                     ))
                     saved_count += 1
+        
+        # 기존 데이터의 file_type이 NULL인 경우 업데이트
+        cursor.execute('''
+            UPDATE code_chunks 
+            SET file_type = CASE 
+                WHEN file_path LIKE '%.html' OR file_path LIKE '%.htm' THEN 'html'
+                WHEN file_path LIKE '%.js' OR file_path LIKE '%.jsx' THEN 'js'
+                WHEN file_path LIKE '%.ts' OR file_path LIKE '%.tsx' THEN 'js'
+                WHEN file_path LIKE '%.css' OR file_path LIKE '%.scss' OR file_path LIKE '%.sass' THEN 'css'
+                WHEN file_path LIKE '%.py' THEN 'python'
+                WHEN file_path LIKE '%.json' THEN 'json'
+                WHEN file_path LIKE '%.xml' THEN 'xml'
+                ELSE 'text'
+            END
+            WHERE file_type IS NULL OR file_type = ''
+        ''')
+        
+        null_updated = cursor.rowcount
+        if null_updated > 0:
+            print(f"기존 데이터 {null_updated}개의 file_type이 업데이트되었습니다.")
         
         conn.commit()
         conn.close()
