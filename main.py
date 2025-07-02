@@ -84,14 +84,7 @@ def process_website_code(website_directory: str, reset_db: bool = False):
             # 파일 확장자에 따른 청킹
             file_ext = Path(file_path).suffix.lower()
             
-            if file_ext == '.py':
-                chunks = chunker.chunk_python(code)
-            elif file_ext in ['.js', '.jsx', '.ts', '.tsx']:
-                chunks = chunker.chunk_javascript(code)
-            elif file_ext == '.html':
-                chunks = chunker.chunk_html(code)
-            else:
-                chunks = chunker.chunk_by_lines(code)
+            chunks = chunker.chunk_code(code, file_ext)
             
             if not chunks:
                 print(f"⚠️ No chunks created for: {file_path}")
@@ -116,6 +109,7 @@ def process_website_code(website_directory: str, reset_db: bool = False):
     print(f"\n🎉 Processing completed!")
     print(f"   📊 Processed files: {processed_files}/{len(files)}")
     print(f"   📦 Total chunks: {total_chunks}")
+    print(f"   📏 Min chunk length: {config.MIN_CHUNK_LENGTH} characters")
     print(f"   💾 Database: {config.DATABASE_PATH}")
     
     return True

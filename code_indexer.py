@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from typing import List, Dict
 from datetime import datetime
 
 class CodeIndexer:

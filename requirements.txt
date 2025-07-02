@@ -1,6 +1,5 @@
 sentence-transformers
 beautifulsoup4
 numpy
-sqlite3
 pathlib
 torch
