@@ -545,49 +545,78 @@ class WebsiteCodeProcessor:
         self.embedder = OllamaEmbedder(ollama_url, model)
         self.db = CodeEmbeddingDB()
     
-    def process_website_code(self, website_path: str, file_extensions: List[str] = None):
+    def process_website_code(self, website_path: str, file_extensions: List[str] = None, exclude_keywords: List[str] = None, exclude_dirs: List[str] = None):
         """웹사이트 코드 전체 처리"""
         if not os.path.exists(website_path):
             print(f"오류: 경로가 존재하지 않습니다: {website_path}")
             return []
         
+        # 기본 제외 키워드 설정
+        if exclude_keywords is None:
+            exclude_keywords = []
+        
+        # 기본 제외 디렉토리 설정
+        if exclude_dirs is None:
+            exclude_dirs = ['node_modules', '__pycache__', 'dist', 'build', '.git', '.vscode', '.idea']
+        
         all_chunks = []
         processed_files = 0
         skipped_files = 0
+        excluded_files = 0
         
         print(f"웹사이트 코드 스캔 시작: {website_path}")
+        if exclude_keywords:
+            print(f"제외 키워드: {exclude_keywords}")
+        if exclude_dirs:
+            print(f"제외 디렉토리: {exclude_dirs}")
         
-        # 웹사이트 디렉토리 스캐
+        # 웹사이트 디렉토리 스캔
         for root, dirs, files in os.walk(website_path):
-            # 숨김 디렉토리와 일반적인 무시 디렉토리 제외
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', 'dist', 'build']]
+            # 제외 디렉토리 필터링
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in exclude_dirs]
             
             for file in files:
-                if self._is_code_file(file, file_extensions):
-                    file_path = os.path.join(root, file)
-                    relative_path = os.path.relpath(file_path, website_path)
+                # 파일 확장자 확인
+                if not self._is_code_file(file, file_extensions):
+                    continue
+                
+                # 제외 키워드 확인
+                if self._should_exclude_file(file, exclude_keywords):
+                    excluded_files += 1
+                    print(f"제외됨 (키워드 매칭): {file}")
+                    continue
+                
+                file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(file_path, website_path)
+                
+                # 경로에도 제외 키워드가 있는지 확인
+                if self._should_exclude_file(relative_path, exclude_keywords):
+                    excluded_files += 1
+                    print(f"제외됨 (경로 키워드 매칭): {relative_path}")
+                    continue
+                
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
                     
-                    try:
-                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                            content = f.read()
-                        
-                        if len(content.strip()) < self.chunker.min_chunk_length:
-                            print(f"건너뛰기 (파일이 너무 작음): {relative_path}")
-                            skipped_files += 1
-                            continue
-                        
-                        print(f"처리 중: {relative_path}")
-                        chunks = self.chunker.chunk_file(relative_path, content)
-                        all_chunks.extend(chunks)
-                        processed_files += 1
-                        
-                    except Exception as e:
-                        print(f"파일 처리 실패 {relative_path}: {e}")
+                    if len(content.strip()) < self.chunker.min_chunk_length:
+                        print(f"건너뛰기 (파일이 너무 작음): {relative_path}")
                         skipped_files += 1
+                        continue
+                    
+                    print(f"처리 중: {relative_path}")
+                    chunks = self.chunker.chunk_file(relative_path, content)
+                    all_chunks.extend(chunks)
+                    processed_files += 1
+                    
+                except Exception as e:
+                    print(f"파일 처리 실패 {relative_path}: {e}")
+                    skipped_files += 1
         
         print(f"\n파일 처리 완료:")
         print(f"  - 처리된 파일: {processed_files}개")
         print(f"  - 건너뛴 파일: {skipped_files}개")
+        print(f"  - 제외된 파일: {excluded_files}개")
         print(f"  - 총 청크: {len(all_chunks)}개")
         
         if not all_chunks:
