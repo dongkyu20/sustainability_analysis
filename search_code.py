@@ -21,7 +21,7 @@ class SearchResult:
         return f"[{self.file_type}] {self.file_path}:{self.start_line}-{self.end_line} (유사도: {self.similarity:.4f})"
 
 class OllamaEmbedder:
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "deepseek-r1:32b"):
+    def __init__(self, base_url: str = "http://localhost:11434", model: str = "deepseek-coder-v2:16b"):
         self.base_url = base_url
         self.model = model
     
@@ -46,7 +46,7 @@ class OllamaEmbedder:
             return []
 
 class CodeSearchEngine:
-    def __init__(self, db_path: str = "code_embeddings.db", ollama_url: str = "http://localhost:11434", model: str = "deepseek-r1:32b"):
+    def __init__(self, db_path: str = "code_embeddings.db", ollama_url: str = "http://localhost:11434", model: str = "deepseek-coder-v2:16b"):
         self.db_path = db_path
         self.embedder = OllamaEmbedder(ollama_url, model)
         self._check_database()
@@ -443,7 +443,7 @@ def main():
     parser = argparse.ArgumentParser(description='코드 검색 엔진')
     parser.add_argument('--db-path', default='code_embeddings.db', help='데이터베이스 파일 경로')
     parser.add_argument('--ollama-url', default='http://localhost:11434', help='Ollama 서버 URL')
-    parser.add_argument('--model', default='deepseek-r1:32b', help='사용할 모델명')
+    parser.add_argument('--model', default='deepseek-coder-v2:16b', help='사용할 모델명')
     parser.add_argument('--interactive', '-i', action='store_true', help='대화형 모드 실행')
     parser.add_argument('--query', '-q', help='검색 쿼리')
     parser.add_argument('--limit', '-l', type=int, default=10, help='결과 개수 제한')

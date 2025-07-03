@@ -316,7 +316,7 @@ class CodeChunker:
         return chunks
 
 class OllamaEmbedder:
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "deepseek-r1:32b"):
+    def __init__(self, base_url: str = "http://localhost:11434", model: str = "deepseek-coder-v2:16b"):
         self.base_url = base_url
         self.model = model
         self._test_connection()
@@ -387,7 +387,7 @@ class OllamaEmbedder:
                     print(f"  ✗ 실패")
                 
                 # API 과부하 방지를 위한 대기
-                time.sleep(0.1)
+                time.sleep(0.02)
             
             embedded_chunks.extend(batch_embedded)
             
@@ -540,7 +540,7 @@ class CodeEmbeddingDB:
         }
 
 class WebsiteCodeProcessor:
-    def __init__(self, min_chunk_length: int = 30, ollama_url: str = "http://localhost:11434", model: str = "deepseek-r1:32b"):
+    def __init__(self, min_chunk_length: int = 30, ollama_url: str = "http://localhost:11434", model: str = "deepseek-coder-v2:16b"):
         self.chunker = CodeChunker(min_chunk_length)
         self.embedder = OllamaEmbedder(ollama_url, model)
         self.db = CodeEmbeddingDB()
@@ -679,7 +679,7 @@ def main():
     parser.add_argument('website_path', help='웹사이트 코드 디렉토리 경로')
     parser.add_argument('--min-length', type=int, default=30, help='최소 청크 길이 (기본값: 30)')
     parser.add_argument('--ollama-url', default='http://localhost:11434', help='Ollama 서버 URL')
-    parser.add_argument('--model', default='deepseek-r1:32b', help='사용할 모델명')
+    parser.add_argument('--model', default='deepseek-coder-v2:16b', help='사용할 모델명')
     parser.add_argument('--db-path', default='code_embeddings.db', help='데이터베이스 파일 경로')
     parser.add_argument('--extensions', nargs='+', help='처리할 파일 확장자 (예: .py .js .html)')
     parser.add_argument('--exclude-keywords', nargs='+', help='제외할 파일명 키워드 (예: test spec mock)')
