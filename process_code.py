@@ -394,7 +394,7 @@ class OllamaEmbedder:
             # 배치 간 대기
             if i + batch_size < total_chunks:
                 print(f"배치 완료 ({len(batch_embedded)}/{len(batch)}개 성공). 잠시 대기...")
-                time.sleep(1)
+                time.sleep(0.2)
         
         print(f"임베딩 생성 완료: {len(embedded_chunks)}/{total_chunks}개 성공")
         return embedded_chunks
