@@ -222,40 +222,56 @@ class CodeChunker:
         return chunks
     
     def _chunk_python(self, file_path: str, content: str) -> List[CodeChunk]:
-        """Python 파일을 함수/클래스 단위로 chunking"""
-        chunks = []
-        lines = content.split('\n')
-        
-        current_chunk = []
-        start_line = 1
-        current_indent = 0
-        
+        """Python 파일을 함수/클래스 단위로 chunking.
+
+        - 함수/클래스 정의 직전에 연속으로 배치된 주석(`# ...`)과 빈 줄을
+          해당 함수/클래스의 청크에 포함해 설명과 코드가 분리되지 않도록 한다.
+        """
+        chunks: List[CodeChunk] = []
+        lines: List[str] = content.split('\n')
+
+        current_chunk: List[str] = []
+        start_line: int = 1
+        current_indent: int = 0
+
         for i, line in enumerate(lines, 1):
-            # 함수나 클래스 정의 시작
-            if re.match(r'^(def|class)\s+\w+', line.strip()):
-                # 이전 청크 저장
+            stripped = line.strip()
+            is_def_line = re.match(r'^(def|class)\s+\w+', stripped) is not None
+
+            if is_def_line:
+                # ----- 이전 청크 저장 (trailing comment/blank lines 제외) -----
                 if current_chunk:
-                    chunk_content = '\n'.join(current_chunk)
-                    if len(chunk_content.strip()) >= self.min_chunk_length:
-                        chunk_id = hashlib.md5(f"{file_path}:{start_line}:{i-1}".encode()).hexdigest()
-                        chunks.append(CodeChunk(
-                            file_path=file_path,
-                            chunk_id=chunk_id,
-                            content=chunk_content,
-                            file_type='python',
-                            start_line=start_line,
-                            end_line=i-1
-                        ))
-                
-                # 새 청크 시작
-                current_chunk = [line]
-                start_line = i
+                    trailing_comments: List[str] = []
+                    while current_chunk and (current_chunk[-1].strip() == '' or current_chunk[-1].lstrip().startswith('#')):
+                        trailing_comments.insert(0, current_chunk.pop())
+
+                    if current_chunk:  # 실제 코드가 존재할 때만 저장
+                        chunk_content = '\n'.join(current_chunk)
+                        if len(chunk_content.strip()) >= self.min_chunk_length:
+                            end_line = i - len(trailing_comments) - 1
+                            chunk_id = hashlib.md5(f"{file_path}:{start_line}:{end_line}".encode()).hexdigest()
+                            chunks.append(CodeChunk(
+                                file_path=file_path,
+                                chunk_id=chunk_id,
+                                content=chunk_content,
+                                file_type='python',
+                                start_line=start_line,
+                                end_line=end_line
+                            ))
+                else:
+                    trailing_comments = []
+
+                # ----- 새 청크 시작 : 분리한 주석 + 현재 def/class 줄 -----
+                current_chunk = trailing_comments + [line]
+                start_line = i - len(trailing_comments)
                 current_indent = len(line) - len(line.lstrip())
-            
-            elif current_chunk:
-                # 들여쓰기 레벨 확인
-                if line.strip() and len(line) - len(line.lstrip()) <= current_indent and not line.startswith('#'):
-                    # 함수/클래스 끝
+                continue
+
+            # def/class 라인이 아닌 경우
+            if current_chunk:
+                # 들여쓰기 레벨을 통해 함수/클래스 블록 종료 감지
+                if stripped and (len(line) - len(line.lstrip())) <= current_indent and not stripped.startswith('#'):
+                    # 함수/클래스 블록 종료: 현재 줄은 다음 블록의 첫 줄일 수 있음
                     chunk_content = '\n'.join(current_chunk)
                     if len(chunk_content.strip()) >= self.min_chunk_length:
                         chunk_id = hashlib.md5(f"{file_path}:{start_line}:{i-1}".encode()).hexdigest()
@@ -267,14 +283,17 @@ class CodeChunker:
                             start_line=start_line,
                             end_line=i-1
                         ))
+
+                    # 다음 블록 준비 (주석/빈 줄로 시작할 수 있음)
                     current_chunk = [line]
                     start_line = i
+                    current_indent = len(line) - len(line.lstrip())
                 else:
                     current_chunk.append(line)
             else:
                 current_chunk.append(line)
-        
-        # 마지막 청크 처리
+
+        # ----- 마지막 청크 저장 -----
         if current_chunk:
             chunk_content = '\n'.join(current_chunk)
             if len(chunk_content.strip()) >= self.min_chunk_length:
@@ -287,7 +306,7 @@ class CodeChunker:
                     start_line=start_line,
                     end_line=len(lines)
                 ))
-        
+
         return chunks
     
     def _chunk_generic(self, file_path: str, content: str) -> List[CodeChunk]:
