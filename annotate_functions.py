@@ -71,9 +71,11 @@ class OllamaLLM:
         return ""
 
 class FunctionAnnotator:
-    def __init__(self, llm: OllamaLLM, sleep: float = 0.1):
+    def __init__(self, llm: OllamaLLM, sleep: float = 0.1, output_dir: Path | None = None):
         self.llm = llm
         self.sleep = sleep  # API 부하 방지용
+        self.output_dir = output_dir.resolve() if output_dir else None
+        self.root_path: Path | None = None  # annotate_path 호출 시 설정
 
     # --------------------- 파이썬 ---------------------
     def _annotate_python(self, path: Path) -> None:
@@ -112,7 +114,7 @@ class FunctionAnnotator:
         if insertions:
             for idx, comment_lines in sorted(insertions, key=lambda x: x[0], reverse=True):
                 lines[idx:idx] = comment_lines  # 앞에 삽입
-            path.write_text("\n".join(lines), encoding="utf-8")
+            self._save_annotated_file(path, "\n".join(lines))
             print(f"📝 주석 추가 완료: {path} ({len(insertions)}개 함수)")
 
     # --------------------- 자바스크립트 ---------------------
@@ -151,18 +153,32 @@ class FunctionAnnotator:
         if insertions:
             for idx, comment_lines in sorted(insertions, key=lambda x: x[0], reverse=True):
                 lines[idx:idx] = comment_lines
-            path.write_text("\n".join(lines), encoding="utf-8")
+            self._save_annotated_file(path, "\n".join(lines))
             print(f"📝 주석 추가 완료: {path} ({len(insertions)}개 함수)")
 
     # --------------------- 진입점 ---------------------
     def annotate_path(self, target_path: Path, exts: List[str] | None = None) -> None:
         target_path = target_path.resolve()
+        # 주석 삽입 대상 루트 디렉토리 기록(상대 경로 계산용)
+        self.root_path = target_path if target_path.is_dir() else target_path.parent
+
         if target_path.is_file():
             self._annotate_file(target_path, exts)
         else:
             for root, _, files in os.walk(target_path):
                 for fname in files:
                     self._annotate_file(Path(root) / fname, exts)
+
+    def _save_annotated_file(self, original_path: Path, new_content: str) -> None:
+        """주석이 삽입된 코드를 저장. output_dir 지정 시 동일한 상대 경로로 복사 저장한다."""
+        if self.output_dir and self.root_path:
+            rel = original_path.relative_to(self.root_path)
+            dest_path = self.output_dir / rel
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            dest_path.write_text(new_content, encoding="utf-8")
+        else:
+            # in-place 저장(기존 동작)
+            original_path.write_text(new_content, encoding="utf-8")
 
     def _annotate_file(self, path: Path, exts: List[str] | None) -> None:
         if exts and path.suffix not in exts:
@@ -186,6 +202,7 @@ def main() -> None:
     parser.add_argument("--model", default="deepseek-coder-v2:16b", help="사용할 모델명")
     parser.add_argument("--extensions", nargs="*", help="처리할 파일 확장자 목록 예) .py .js")
     parser.add_argument("--sleep", type=float, default=0.1, help="API 호출 간 대기시간(초)")
+    parser.add_argument("--output-dir", help="주석이 삽입된 파일을 저장할 디렉토리(미지정 시 원본 덮어쓰기)")
     args = parser.parse_args()
 
     exts = None
@@ -193,7 +210,7 @@ def main() -> None:
         exts = [ext if ext.startswith(".") else f".{ext}" for ext in args.extensions]
 
     llm = OllamaLLM(args.ollama_url, args.model)
-    annotator = FunctionAnnotator(llm, sleep=args.sleep)
+    annotator = FunctionAnnotator(llm, sleep=args.sleep, output_dir=Path(args.output_dir) if args.output_dir else None)
     annotator.annotate_path(Path(args.path), exts)
 
 if __name__ == "__main__":
